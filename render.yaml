@@ -1,0 +1,39 @@
+# Blueprint Render: Dashboard → New → Blueprint → pilih repo ini.
+services:
+  - type: web
+    name: aiagent-chat
+    runtime: docker
+    region: singapore
+    plan: standard          # 2 GB RAM; CLI agent butuh ±300–500 MB per run
+    healthCheckPath: /health
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase: { name: aiagent-chat-db, property: connectionString }
+      - key: REDIS_URL
+        fromService: { type: keyvalue, name: aiagent-chat-kv, property: connectionString }
+      - key: JWT_SECRET
+        generateValue: true
+      - key: ENCRYPTION_KEY   # base64 256-bit = 32 byte, sesuai kebutuhan AES-256
+        generateValue: true
+      - key: WEB_ORIGIN       # URL publik service, mis. https://aiagent-chat.onrender.com
+        sync: false
+      - key: ADMIN_EMAIL      # satu-satunya email yang boleh membuat akun admin pertama
+        sync: false
+      - key: CODEX_SHARED_HOME
+        value: /var/lib/ruang/codex-home
+    disk:                     # menyimpan folder kerja & session agent antar-deploy
+      name: agents
+      mountPath: /var/lib/ruang
+      sizeGB: 10
+
+  - type: keyvalue
+    name: aiagent-chat-kv
+    region: singapore
+    plan: free
+    maxmemoryPolicy: noeviction   # wajib untuk antrean BullMQ
+    ipAllowList: []               # hanya bisa diakses dari jaringan internal Render
+
+databases:
+  - name: aiagent-chat-db
+    region: singapore
+    plan: basic-256mb
